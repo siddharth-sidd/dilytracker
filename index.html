@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="A simple daily task management dashboard." />
+  <title>DailyTracker — Daily Task Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">PERSONAL PRODUCTIVITY</p>
+        <h1>DailyTracker</h1>
+      </div>
+      <button id="themeToggle" class="icon-button" aria-label="Toggle theme">☾</button>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <p class="date" id="todayLabel"></p>
+          <h2>Plan your day.<br><span>Finish with confidence.</span></h2>
+          <p class="hero-copy">Keep your priorities clear and your daily progress visible.</p>
+        </div>
+        <div class="progress-ring" aria-label="Daily completion">
+          <div><strong id="completionPercent">0%</strong><span>complete</span></div>
+        </div>
+      </section>
+
+      <section class="stats" aria-label="Task statistics">
+        <article><span>Total</span><strong id="totalCount">0</strong></article>
+        <article><span>Completed</span><strong id="completedCount">0</strong></article>
+        <article><span>Pending</span><strong id="pendingCount">0</strong></article>
+        <article><span>High Priority</span><strong id="highCount">0</strong></article>
+      </section>
+
+      <section class="task-panel">
+        <div class="panel-heading">
+          <div>
+            <h3>Today’s Tasks</h3>
+            <p>Add tasks, set priorities, and track what is done.</p>
+          </div>
+          <button id="clearCompleted" class="text-button">Clear completed</button>
+        </div>
+
+        <form id="taskForm" class="task-form">
+          <input id="taskInput" type="text" placeholder="What needs to be done?" maxlength="120" required />
+          <select id="priorityInput" aria-label="Priority">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+          <input id="timeInput" type="time" aria-label="Task time" />
+          <button type="submit" class="primary-button">+ Add Task</button>
+        </form>
+
+        <div class="toolbar">
+          <div class="filters" role="group" aria-label="Filter tasks">
+            <button class="filter active" data-filter="all">All</button>
+            <button class="filter" data-filter="pending">Pending</button>
+            <button class="filter" data-filter="completed">Completed</button>
+          </div>
+          <select id="sortSelect" aria-label="Sort tasks">
+            <option value="created">Newest</option>
+            <option value="priority">Priority</option>
+            <option value="time">Time</option>
+          </select>
+        </div>
+
+        <div id="taskList" class="task-list"></div>
+        <div id="emptyState" class="empty-state">
+          <div class="empty-icon">✓</div>
+          <h4>No tasks here</h4>
+          <p>Add your first task and start making progress.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer>DailyTracker saves your tasks locally in this browser.</footer>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
