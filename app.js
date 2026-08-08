@@ -1,86 +1,29 @@
-const STORAGE_KEY = 'dailytracker.tasks.v1';
-let tasks = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+const STORAGE_KEY = 'dailytracker.tasks.v2';
+let tasks = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]').map(normalizeTask);
 let currentFilter = 'all';
-
-const $ = (id) => document.getElementById(id);
-const taskForm = $('taskForm');
-const taskInput = $('taskInput');
-const priorityInput = $('priorityInput');
-const timeInput = $('timeInput');
-const taskList = $('taskList');
-const emptyState = $('emptyState');
-
-function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); }
-function today() {
-  return new Intl.DateTimeFormat(undefined, { weekday:'long', month:'long', day:'numeric', year:'numeric' }).format(new Date());
+const $ = id => document.getElementById(id);
+const taskForm=$('taskForm'), taskInput=$('taskInput'), priorityInput=$('priorityInput'), categoryInput=$('categoryInput'), timeInput=$('timeInput'), dateInput=$('dateInput'), notesInput=$('notesInput'), taskList=$('taskList'), emptyState=$('emptyState');
+const todayISO=()=>{const d=new Date(); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10)};
+function normalizeTask(t){return {...t,category:t.category||'Other',date:t.date||todayISO(),notes:t.notes||'',done:!!t.done,createdAt:t.createdAt||Date.now()};}
+function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(tasks));}
+function today(){return new Intl.DateTimeFormat(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'}).format(new Date());}
+function priorityValue(p){return {high:3,medium:2,low:1}[p]||0;}
+function isOverdue(t){return !t.done && t.date && t.date<todayISO();}
+function visibleTasks(){let list=[...tasks]; const q=$('searchInput').value.trim().toLowerCase(); if(q) list=list.filter(t=>`${t.title} ${t.category} ${t.notes}`.toLowerCase().includes(q)); if(currentFilter==='pending')list=list.filter(t=>!t.done); if(currentFilter==='completed')list=list.filter(t=>t.done); if(currentFilter==='overdue')list=list.filter(isOverdue); const sort=$('sortSelect').value; if(sort==='priority')list.sort((a,b)=>priorityValue(b.priority)-priorityValue(a.priority)); else if(sort==='time')list.sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99')); else if(sort==='date')list.sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')); else list.sort((a,b)=>b.createdAt-a.createdAt); return list;}
+function formatDate(date){if(!date)return ''; if(date===todayISO())return 'Today'; return new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric'}).format(new Date(`${date}T00:00:00`));}
+function render(){
+ $('todayLabel').textContent=today(); const total=tasks.length,completed=tasks.filter(t=>t.done).length,pending=total-completed,high=tasks.filter(t=>t.priority==='high'&&!t.done).length,overdue=tasks.filter(isOverdue).length,percent=total?Math.round(completed/total*100):0;
+ $('totalCount').textContent=total;$('completedCount').textContent=completed;$('pendingCount').textContent=pending;$('highCount').textContent=high;$('completionPercent').textContent=`${percent}%`;document.querySelector('.progress-ring').style.setProperty('--progress',`${percent}%`);$('workloadLabel').textContent=`${tasks.filter(t=>t.date===todayISO()&&!t.done).length} tasks`;$('streakCount').textContent=`${calculateStreak()} day${calculateStreak()===1?'':'s'}`;$('insightText').textContent=overdue?`⚠️ ${overdue} overdue task${overdue>1?'s':''} needs attention.`:percent===100&&total?'🎉 Everything is complete!':high?`🔥 Focus on your ${high} high-priority task${high>1?'s':''}.`:'💡 Start with one important task.';
+ const list=visibleTasks(); taskList.innerHTML=list.map(t=>`<article class="task ${t.done?'done':''} ${isOverdue(t)?'overdue':''}" data-id="${t.id}"><button class="check" aria-label="${t.done?'Mark pending':'Mark complete'}">${t.done?'✓':''}</button><div><div class="task-title">${escapeHtml(t.title)}</div><div class="task-meta"><span class="badge ${t.priority}">${t.priority}</span><span class="category">${escapeHtml(t.category)}</span>${t.time?`<span class="time">◷ ${t.time}</span>`:''}<span class="time ${isOverdue(t)?'late':''}">📅 ${formatDate(t.date)}</span></div>${t.notes?`<div class="task-notes">${escapeHtml(t.notes)}</div>`:''}</div><div class="task-actions"><button class="edit" title="Edit task">✏️</button><button class="delete" title="Delete task">×</button></div></article>`).join(''); emptyState.style.display=list.length?'none':'block';
 }
-function priorityValue(p) { return { high: 3, medium: 2, low: 1 }[p] || 0; }
-function visibleTasks() {
-  let list = [...tasks];
-  if (currentFilter === 'pending') list = list.filter(t => !t.done);
-  if (currentFilter === 'completed') list = list.filter(t => t.done);
-  const sort = $('sortSelect').value;
-  if (sort === 'priority') list.sort((a,b) => priorityValue(b.priority) - priorityValue(a.priority));
-  else if (sort === 'time') list.sort((a,b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
-  else list.sort((a,b) => b.createdAt - a.createdAt);
-  return list;
-}
-function render() {
-  $('todayLabel').textContent = today();
-  const total = tasks.length;
-  const completed = tasks.filter(t => t.done).length;
-  const pending = total - completed;
-  const high = tasks.filter(t => t.priority === 'high' && !t.done).length;
-  const percent = total ? Math.round(completed / total * 100) : 0;
-  $('totalCount').textContent = total;
-  $('completedCount').textContent = completed;
-  $('pendingCount').textContent = pending;
-  $('highCount').textContent = high;
-  $('completionPercent').textContent = `${percent}%`;
-  document.querySelector('.progress-ring').style.setProperty('--progress', `${percent}%`);
+function calculateStreak(){const completedDates=new Set(tasks.filter(t=>t.done).map(t=>t.date||new Date(t.createdAt).toISOString().slice(0,10))); let d=new Date(`${todayISO()}T00:00:00`),streak=0; if(!completedDates.has(todayISO()))d.setDate(d.getDate()-1); while(completedDates.has(d.toISOString().slice(0,10))){streak++;d.setDate(d.getDate()-1);} return streak;}
+function escapeHtml(value){return String(value).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 
-  const list = visibleTasks();
-  taskList.innerHTML = list.map(t => `
-    <article class="task ${t.done ? 'done' : ''}" data-id="${t.id}">
-      <button class="check" aria-label="${t.done ? 'Mark pending' : 'Mark complete'}">${t.done ? '✓' : ''}</button>
-      <div>
-        <div class="task-title">${escapeHtml(t.title)}</div>
-        <div class="task-meta">
-          <span class="badge ${t.priority}">${t.priority}</span>
-          ${t.time ? `<span class="time">◷ ${t.time}</span>` : ''}
-        </div>
-      </div>
-      <button class="delete" aria-label="Delete task">×</button>
-    </article>`).join('');
-  emptyState.style.display = list.length ? 'none' : 'block';
-}
-function escapeHtml(value) { return value.replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
-
-taskForm.addEventListener('submit', e => {
-  e.preventDefault();
-  const title = taskInput.value.trim();
-  if (!title) return;
-  tasks.push({ id: crypto.randomUUID(), title, priority: priorityInput.value, time: timeInput.value, done: false, createdAt: Date.now() });
-  save(); render(); taskForm.reset(); priorityInput.value = 'medium'; taskInput.focus();
-});
-
-taskList.addEventListener('click', e => {
-  const row = e.target.closest('.task');
-  if (!row) return;
-  const task = tasks.find(t => t.id === row.dataset.id);
-  if (e.target.closest('.check')) task.done = !task.done;
-  if (e.target.closest('.delete')) tasks = tasks.filter(t => t.id !== row.dataset.id);
-  save(); render();
-});
-
-document.querySelectorAll('.filter').forEach(button => button.addEventListener('click', () => {
-  document.querySelectorAll('.filter').forEach(b => b.classList.remove('active'));
-  button.classList.add('active'); currentFilter = button.dataset.filter; render();
-}));
-$('sortSelect').addEventListener('change', render);
-$('clearCompleted').addEventListener('click', () => { tasks = tasks.filter(t => !t.done); save(); render(); });
-$('themeToggle').addEventListener('click', () => {
-  document.body.classList.toggle('dark');
-  $('themeToggle').textContent = document.body.classList.contains('dark') ? '☀' : '☾';
-});
-render();
+taskForm.addEventListener('submit',e=>{e.preventDefault();const title=taskInput.value.trim();if(!title)return;tasks.push({id:crypto.randomUUID(),title,priority:priorityInput.value,category:categoryInput.value,time:timeInput.value,date:dateInput.value||todayISO(),notes:notesInput.value.trim(),done:false,createdAt:Date.now()});save();render();taskForm.reset();priorityInput.value='medium';dateInput.value=todayISO();taskInput.focus();});
+taskList.addEventListener('click',e=>{const row=e.target.closest('.task');if(!row)return;const task=tasks.find(t=>t.id===row.dataset.id);if(!task)return;if(e.target.closest('.check')){task.done=!task.done;save();render();return;}if(e.target.closest('.delete')){tasks=tasks.filter(t=>t.id!==row.dataset.id);save();render();return;}if(e.target.closest('.edit')){const title=prompt('Edit task title:',task.title);if(title&&title.trim())task.title=title.trim();const notes=prompt('Edit notes:',task.notes||'');if(notes!==null)task.notes=notes.trim();save();render();}});
+document.querySelectorAll('.filter').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('.filter').forEach(b=>b.classList.remove('active'));button.classList.add('active');currentFilter=button.dataset.filter;render();}));
+$('searchInput').addEventListener('input',render);$('sortSelect').addEventListener('change',render);$('clearCompleted').addEventListener('click',()=>{tasks=tasks.filter(t=>!t.done);save();render();});
+$('themeToggle').addEventListener('click',()=>{document.body.classList.toggle('dark');$('themeToggle').textContent=document.body.classList.contains('dark')?'☀️':'☾';localStorage.setItem('dailytracker.theme',document.body.classList.contains('dark')?'dark':'light');});
+$('exportBtn').addEventListener('click',()=>{const blob=new Blob([JSON.stringify(tasks,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`dailytracker-backup-${todayISO()}.json`;a.click();URL.revokeObjectURL(url);});
+$('importInput').addEventListener('change',e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const imported=JSON.parse(reader.result);if(!Array.isArray(imported))throw Error();tasks=imported.map(normalizeTask);save();render();alert('✅ Tasks imported successfully!');}catch{alert('❌ Invalid DailyTracker backup file.');}};reader.readAsText(file);e.target.value='';});
+if(localStorage.getItem('dailytracker.theme')==='dark'){document.body.classList.add('dark');$('themeToggle').textContent='☀️';} dateInput.value=todayISO();render();
